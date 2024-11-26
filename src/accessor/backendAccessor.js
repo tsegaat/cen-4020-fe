@@ -13,4 +13,10 @@ export const backendAccessor = {
         const response = await fetch(`http://localhost:3033/api/user/${id}`);
         return response.json();
     },
+    getStudentsInInstructorCourse: async (id) => {
+        const response = await fetch(
+            `http://localhost:3033/api/instructors/${id}/students`
+        );
+        return response.json();
+    },
 };

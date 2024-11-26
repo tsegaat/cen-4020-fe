@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { backendAccessor } from "../accessor/backendAccessor";
 import Cookies from "js-cookie";
-const StudentDashboard = ({ onSignOut, user }) => {
+
+const StudentDashboard = () => {
     const userId = Cookies.get("cen-userId");
     const [studentInfo, setStudentInfo] = useState({
         name: "",
@@ -29,6 +30,12 @@ const StudentDashboard = ({ onSignOut, user }) => {
     });
 
     const [whatIfResult, setWhatIfResult] = useState(null);
+
+    const onSignOut = () => {
+        Cookies.remove("cen-userId");
+        Cookies.remove("cen-userRole");
+        window.location.href = "/";
+    };
 
     const performWhatIfAnalysis = () => {
         const { currentGPA, targetGPA, numCourses, creditPerCourse } =
