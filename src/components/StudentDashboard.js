@@ -1,15 +1,25 @@
-import React, { useState } from "react";
-
+import React, { useEffect, useState } from "react";
+import { backendAccessor } from "../accessor/backendAccessor";
+import Cookies from "js-cookie";
 const StudentDashboard = ({ onSignOut, user }) => {
+    const userId = Cookies.get("cen-userId");
     const [studentInfo, setStudentInfo] = useState({
-        name: "John Doe",
-        major: "Computer Science",
-        courses: [
-            { name: "Introduction to Programming", grade: "A" },
-            { name: "Data Structures", grade: "B+" },
-        ],
-        gpa: 3.5,
+        name: "",
+        Student: {
+            enrollments: [],
+            major: "",
+            gpa: 0,
+        },
     });
+
+    useEffect(() => {
+        const fetchUser = async () => {
+            const res = await backendAccessor.getUser(userId);
+            console.log(res);
+            setStudentInfo(res);
+        };
+        fetchUser();
+    }, [userId]);
 
     const [whatIfParams, setWhatIfParams] = useState({
         currentGPA: 3.5,
@@ -23,32 +33,39 @@ const StudentDashboard = ({ onSignOut, user }) => {
     const performWhatIfAnalysis = () => {
         const { currentGPA, targetGPA, numCourses, creditPerCourse } =
             whatIfParams;
+        const currentEnrollments = studentInfo.Student.enrollments;
+        const totalCurrentCredits = currentEnrollments.length * creditPerCourse;
 
         if (targetGPA) {
             // Scenario 2: Calculate required GPA for target
-            const totalCredits = studentInfo.courses.length * creditPerCourse;
-            const newTotalCredits = totalCredits + numCourses * creditPerCourse;
+            const newTotalCredits =
+                totalCurrentCredits + numCourses * creditPerCourse;
             const requiredGPA =
-                (targetGPA * newTotalCredits - currentGPA * totalCredits) /
+                (targetGPA * newTotalCredits -
+                    currentGPA * totalCurrentCredits) /
                 (numCourses * creditPerCourse);
 
-            setWhatIfResult(
-                `To achieve a GPA of ${targetGPA}, you need to earn an average GPA of ${requiredGPA.toFixed(
-                    2
-                )} in your next ${numCourses} courses.`
-            );
+            // Check if the required GPA is achievable (between 0 and 4.0)
+            if (requiredGPA < 0 || requiredGPA > 4.0) {
+                setWhatIfResult(
+                    `Target GPA of ${targetGPA} is not achievable with ${numCourses} courses.`
+                );
+            } else {
+                setWhatIfResult(
+                    `To achieve a GPA of ${targetGPA}, you need to earn an average GPA of ${requiredGPA.toFixed(
+                        2
+                    )} in your next ${numCourses} courses.`
+                );
+            }
         } else {
-            // Scenario 1: Calculate new GPA after N courses
-            const randomGrades = Array(parseInt(numCourses))
-                .fill()
-                .map(() => Math.random() * 4); // Random GPAs between 0 and 4
-            const newGPA =
-                (currentGPA * studentInfo.courses.length +
-                    randomGrades.reduce((a, b) => a + b, 0)) /
-                (studentInfo.courses.length + randomGrades.length);
+            // Scenario 1: Project GPA if all future courses are the same as current GPA
+            const projectedGPA =
+                (currentGPA * totalCurrentCredits +
+                    currentGPA * numCourses * creditPerCourse) /
+                (totalCurrentCredits + numCourses * creditPerCourse);
 
             setWhatIfResult(
-                `If you take ${numCourses} more courses, your new GPA could be approximately ${newGPA.toFixed(
+                `If you maintain your current performance level for ${numCourses} more courses, your GPA would remain at ${projectedGPA.toFixed(
                     2
                 )}.`
             );
@@ -66,7 +83,7 @@ const StudentDashboard = ({ onSignOut, user }) => {
                     Sign Out
                 </button>
             </div>
-            <p>Welcome, {user.name}!</p>
+            <p>Welcome, {studentInfo.name}!</p>
 
             <div className="mb-8">
                 <h2 className="text-xl font-semibold mb-2">Your Information</h2>
@@ -74,21 +91,24 @@ const StudentDashboard = ({ onSignOut, user }) => {
                     <strong>Name:</strong> {studentInfo.name}
                 </p>
                 <p>
-                    <strong>Major:</strong> {studentInfo.major}
+                    <strong>Major:</strong> {studentInfo.Student.major}
                 </p>
                 <p>
-                    <strong>Current GPA:</strong> {studentInfo.gpa}
+                    <strong>Current GPA:</strong> {studentInfo.Student.gpa}
                 </p>
             </div>
 
             <div className="mb-8">
                 <h2 className="text-xl font-semibold mb-2">Your Courses</h2>
                 <ul>
-                    {studentInfo.courses.map((course, index) => (
-                        <li key={index}>
-                            {course.name} - Grade: {course.grade}
-                        </li>
-                    ))}
+                    {studentInfo.Student.enrollments.map(
+                        (enrollment, index) => (
+                            <li key={index}>
+                                {enrollment.course.name} - Grade:{" "}
+                                {enrollment.grade}
+                            </li>
+                        )
+                    )}
                 </ul>
             </div>
 

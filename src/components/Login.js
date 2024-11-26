@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { backendAccessor } from "../accessor/backendAccessor";
+import Cookies from "js-cookie";
 
 const Login = ({ setUser }) => {
     const [credentials, setCredentials] = useState({
         username: "",
         password: "",
-        role: "",
     });
     const navigate = useNavigate();
 
@@ -13,12 +14,22 @@ const Login = ({ setUser }) => {
         setCredentials({ ...credentials, [e.target.name]: e.target.value });
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        // Here you would typically authenticate with a backend
-        // For now, we'll just set the user and redirect
-        setUser({ name: credentials.username, role: credentials.role });
-        navigate(`/${credentials.role}`);
+        const res = await backendAccessor.login(
+            credentials.username,
+            credentials.password
+        );
+        setUser({
+            name: credentials.username,
+            role: res.role,
+            id: res.id,
+            email: res.email,
+        });
+
+        Cookies.set("cen-userId", res.id, { expires: 7 });
+        Cookies.set("cen-userRole", res.role, { expires: 7 });
+        navigate(`/${res.role}`);
     };
 
     return (
@@ -61,25 +72,6 @@ const Login = ({ setUser }) => {
                                 value={credentials.password}
                                 onChange={handleChange}
                             />
-                        </div>
-                        <div>
-                            <label htmlFor="role" className="sr-only">
-                                Role
-                            </label>
-                            <select
-                                id="role"
-                                name="role"
-                                required
-                                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                                value={credentials.role}
-                                onChange={handleChange}
-                            >
-                                <option value="">Select Role</option>
-                                <option value="student">Student</option>
-                                <option value="advisor">Advisor</option>
-                                <option value="instructor">Instructor</option>
-                                <option value="staff">Staff</option>
-                            </select>
                         </div>
                     </div>
 

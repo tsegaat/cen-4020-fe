@@ -10,10 +10,11 @@ import StudentDashboard from "./components/StudentDashboard";
 import AdvisorDashboard from "./components/AdvisorDashboard";
 import InstructorDashboard from "./components/InstructorDashboard";
 import StaffDashboard from "./components/StaffDashboard";
-
+import Cookies from "js-cookie";
 function App() {
     const [user, setUser] = useState(null);
-
+    const userId = Cookies.get("cen-userId");
+    const userRole = Cookies.get("cen-userRole");
     const handleSignOut = () => {
         setUser(null);
     };
@@ -25,8 +26,8 @@ function App() {
                     <Route
                         path="/"
                         element={
-                            user ? (
-                                <Navigate to={`/${user.role}`} />
+                            userId && userRole ? (
+                                <Navigate to={`/${userRole}`} />
                             ) : (
                                 <Login setUser={setUser} />
                             )
@@ -35,7 +36,7 @@ function App() {
                     <Route
                         path="/student"
                         element={
-                            user && user.role === "student" ? (
+                            userId && userRole === "student" ? (
                                 <StudentDashboard
                                     user={user}
                                     onSignOut={handleSignOut}
@@ -48,7 +49,7 @@ function App() {
                     <Route
                         path="/advisor"
                         element={
-                            user && user.role === "advisor" ? (
+                            userId && userRole === "advisor" ? (
                                 <AdvisorDashboard
                                     user={user}
                                     onSignOut={handleSignOut}
@@ -61,7 +62,7 @@ function App() {
                     <Route
                         path="/instructor"
                         element={
-                            user && user.role === "instructor" ? (
+                            userId && userRole === "instructor" ? (
                                 <InstructorDashboard
                                     user={user}
                                     onSignOut={handleSignOut}
@@ -74,7 +75,7 @@ function App() {
                     <Route
                         path="/staff"
                         element={
-                            user && user.role === "staff" ? (
+                            userId && userRole === "staff" ? (
                                 <StaffDashboard
                                     user={user}
                                     onSignOut={handleSignOut}
