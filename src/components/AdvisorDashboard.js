@@ -1,32 +1,32 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import Cookies from "js-cookie";
+import { backendAccessor } from "../accessor/backendAccessor";
 
-const AdvisorDashboard = ({ onSignOut, user }) => {
-    const [advisorDepartment, setAdvisorDepartment] =
-        useState("Computer Science");
+const AdvisorDashboard = () => {
+    const [user, setUser] = useState({
+        name: "",
+        Advisor: {
+            department: "",
+            students: [{ major: "", user: {}, enrollments: [] }],
+        },
+    });
+
     const [students, setStudents] = useState([
         {
-            id: 1,
-            name: "John Doe",
-            major: "Computer Science",
-            courses: ["Introduction to Programming"],
-            gpa: 3.5,
-        },
-        {
-            id: 2,
-            name: "Jane Smith",
-            major: "Computer Science",
-            courses: ["Data Structures"],
-            gpa: 3.7,
+            id: null,
+            name: "",
+            major: "",
+            courses: [],
+            gpa: null,
         },
     ]);
+
     const [courses, setCourses] = useState([
         {
             id: 1,
-            name: "Introduction to Programming",
-            department: "Computer Science",
+            name: "",
+            department: "",
         },
-        { id: 2, name: "Data Structures", department: "Computer Science" },
-        { id: 3, name: "Algorithms", department: "Computer Science" },
     ]);
 
     const [selectedStudent, setSelectedStudent] = useState(null);
@@ -36,62 +36,107 @@ const AdvisorDashboard = ({ onSignOut, user }) => {
         creditPerCourse: 3,
     });
     const [whatIfResult, setWhatIfResult] = useState(null);
+    const [selectedCourse, setSelectedCourse] = useState("");
 
-    const addStudentToCourse = (studentId, courseName) => {
-        setStudents(
-            students.map((student) =>
-                student.id === studentId
-                    ? { ...student, courses: [...student.courses, courseName] }
-                    : student
-            )
-        );
+    useEffect(() => {
+        const user = Cookies.get("cen-userId");
+        const fetchUser = async () => {
+            const res = await backendAccessor.getUser(user);
+            setStudents(
+                res.Advisor.students.map((s) => {
+                    return {
+                        id: s.id,
+                        name: s.user.name,
+                        major: s.major,
+                        gpa: s.gpa,
+                        courses: s.enrollments.map((e) => e.course.name),
+                    };
+                })
+            );
+            setUser(res);
+        };
+        fetchUser();
+        const fetchCourses = async () => {
+            const res = await backendAccessor.getCourses();
+            setCourses(res);
+        };
+        fetchCourses();
+    }, []);
+
+    const onSignOut = () => {
+        Cookies.remove("cen-userId");
+        Cookies.remove("cen-userRole");
+        window.location.href = "/";
     };
 
-    const removeStudentFromCourse = (studentId, courseName) => {
-        setStudents(
-            students.map((student) =>
-                student.id === studentId
-                    ? {
-                          ...student,
-                          courses: student.courses.filter(
-                              (c) => c !== courseName
-                          ),
-                      }
-                    : student
-            )
-        );
+    const addStudentToCourse = async (studentId, courseId) => {
+        try {
+            await backendAccessor.addStudentToCourse(studentId, courseId);
+            alert("Course added successfully");
+            window.location.reload();
+        } catch (error) {
+            alert("Failed to add course");
+        }
+    };
+
+    const removeStudentFromCourse = async (studentId, courseId) => {
+        try {
+            await backendAccessor.removeStudentFromCourse(studentId, courseId);
+            alert("Course removed successfully");
+            window.location.reload();
+        } catch (error) {
+            alert("Failed to remove course");
+        }
     };
 
     const performWhatIfAnalysis = () => {
         if (!selectedStudent) return;
 
         const { gpa: currentGPA } = selectedStudent;
-        const { targetGPA, numCourses, creditPerCourse } = whatIfParams;
+        const { targetGPA, numCourses } = whatIfParams;
 
-        if (targetGPA) {
-            const totalCredits =
-                selectedStudent.courses.length * creditPerCourse;
-            const newTotalCredits =
-                totalCredits + parseInt(numCourses) * creditPerCourse;
+        // Get total credits from actual enrollments
+        const totalCredits =
+            selectedStudent.enrollments?.reduce(
+                (sum, enrollment) => sum + enrollment.course.credits,
+                0
+            ) || 0;
+
+        // Assume 3 credits per new course (standard course load)
+        const newCourseCredits = 3;
+        const newTotalCredits =
+            totalCredits + parseInt(numCourses) * newCourseCredits;
+
+        if (targetGPA && !isNaN(targetGPA)) {
             const requiredGPA =
-                (targetGPA * newTotalCredits - currentGPA * totalCredits) /
-                (parseInt(numCourses) * creditPerCourse);
+                (parseFloat(targetGPA) * newTotalCredits -
+                    currentGPA * totalCredits) /
+                (parseInt(numCourses) * newCourseCredits);
 
-            setWhatIfResult(
-                `To achieve a GPA of ${targetGPA}, ${
-                    selectedStudent.name
-                } needs to earn an average GPA of ${requiredGPA.toFixed(
-                    2
-                )} in their next ${numCourses} courses.`
-            );
+            if (requiredGPA > 4.0 || requiredGPA < 0) {
+                setWhatIfResult(
+                    `The target GPA of ${targetGPA} is not achievable with ${numCourses} courses.`
+                );
+            } else {
+                setWhatIfResult(
+                    `To achieve a GPA of ${targetGPA}, ${
+                        selectedStudent.name
+                    } needs to earn an average GPA of ${requiredGPA.toFixed(
+                        2
+                    )} in their next ${numCourses} courses.`
+                );
+            }
         } else {
+            // Random simulation case
             const randomGrades = Array(parseInt(numCourses))
                 .fill()
-                .map(() => Math.random() * 4);
+                .map(() => Math.random() * 2.5 + 1.5); // More realistic grades between 1.5 and 4.0
+
             const newGPA =
-                (currentGPA * selectedStudent.courses.length +
-                    randomGrades.reduce((a, b) => a + b, 0)) /
-                (selectedStudent.courses.length + randomGrades.length);
+                (currentGPA * totalCredits +
+                    randomGrades.reduce((a, b) => a + b, 0) *
+                        newCourseCredits) /
+                newTotalCredits;
 
             setWhatIfResult(
                 `If ${
@@ -116,27 +161,27 @@ const AdvisorDashboard = ({ onSignOut, user }) => {
             </div>
             <p>Welcome, {user.name}!</p>
             <h1 className="text-2xl font-bold mb-4">Advisor Dashboard</h1>
-            <p className="mb-4">Department: {advisorDepartment}</p>
+            <p className="mb-4">Department: {user.Advisor.department}</p>
 
             <div className="mb-8">
                 <h2 className="text-xl font-semibold mb-2">
                     Manage Student Courses
                 </h2>
-                {students.map((student) => (
+                {user.Advisor.students.map((student) => (
                     <div key={student.id} className="mb-4 p-4 border rounded">
                         <h3 className="font-semibold">
-                            {student.name} - {student.major}
+                            {student.user.name} - {student.major}
                         </h3>
                         <p>GPA: {student.gpa}</p>
                         <ul className="list-disc list-inside">
-                            {student.courses.map((course) => (
-                                <li key={course}>
-                                    {course}
+                            {student.enrollments.map((enrollment) => (
+                                <li key={enrollment.id}>
+                                    {enrollment.course.name}
                                     <button
                                         onClick={() =>
                                             removeStudentFromCourse(
                                                 student.id,
-                                                course
+                                                enrollment.course.id
                                             )
                                         }
                                         className="ml-2 text-red-500"
@@ -147,30 +192,43 @@ const AdvisorDashboard = ({ onSignOut, user }) => {
                             ))}
                         </ul>
                         <div className="mt-2">
-                            <select className="border p-2 mr-2">
+                            <select
+                                className="border p-2 mr-2"
+                                value={selectedCourse}
+                                onChange={(e) =>
+                                    setSelectedCourse(e.target.value)
+                                }
+                            >
+                                <option value="">Select a course</option>
                                 {courses
                                     .filter(
                                         (course) =>
-                                            !student.courses.includes(
-                                                course.name
-                                            )
+                                            !student.enrollments
+                                                .map(
+                                                    (enrollment) =>
+                                                        enrollment.course.id
+                                                )
+                                                .includes(course.id)
                                     )
                                     .map((course) => (
                                         <option
                                             key={course.id}
-                                            value={course.name}
+                                            value={course.id}
                                         >
                                             {course.name}
                                         </option>
                                     ))}
                             </select>
                             <button
-                                onClick={() =>
-                                    addStudentToCourse(
-                                        student.id,
-                                        document.querySelector("select").value
-                                    )
-                                }
+                                onClick={() => {
+                                    if (selectedCourse) {
+                                        addStudentToCourse(
+                                            student.id,
+                                            parseInt(selectedCourse)
+                                        );
+                                        setSelectedCourse("");
+                                    }
+                                }}
                                 className="bg-green-500 text-white p-2 rounded"
                             >
                                 Add Course
