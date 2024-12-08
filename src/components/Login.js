@@ -8,6 +8,7 @@ const Login = ({ setUser }) => {
         username: "",
         password: "",
     });
+    const [error, setError] = useState("");
     const navigate = useNavigate();
 
     const handleChange = (e) => {
@@ -16,20 +17,26 @@ const Login = ({ setUser }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const res = await backendAccessor.login(
-            credentials.username,
-            credentials.password
-        );
-        setUser({
-            name: credentials.username,
-            role: res.role,
-            id: res.id,
-            email: res.email,
-        });
+        setError("");
+        try {
+            const res = await backendAccessor.login(
+                credentials.username,
+                credentials.password
+            );
+            setUser({
+                name: credentials.username,
+                role: res.role,
+                id: res.id,
+                email: res.email,
+            });
 
-        Cookies.set("cen-userId", res.id, { expires: 7 });
-        Cookies.set("cen-userRole", res.role, { expires: 7 });
-        navigate(`/${res.role}`);
+            Cookies.set("cen-userId", res.id, { expires: 7 });
+            Cookies.set("cen-userRole", res.role, { expires: 7 });
+            navigate(`/${res.role}`);
+        } catch (err) {
+            setError("Invalid username or password");
+            setCredentials((prev) => ({ ...prev, password: "" }));
+        }
     };
 
     return (
@@ -41,6 +48,11 @@ const Login = ({ setUser }) => {
                     </h2>
                 </div>
                 <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+                    {error && (
+                        <div className="text-red-500 text-sm text-center">
+                            {error}
+                        </div>
+                    )}
                     <input type="hidden" name="remember" value="true" />
                     <div className="rounded-md shadow-sm -space-y-px">
                         <div>

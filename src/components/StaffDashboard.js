@@ -1,87 +1,129 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import Cookies from "js-cookie";
+import { backendAccessor } from "../accessor/backendAccessor";
 import { mockInstructors, mockStudents } from "./mockData";
 
-const StaffDashboard = ({ onSignOut, user }) => {
-    const [department, setDepartment] = useState({
-        name: "Computer Science",
-        building: "Science Building",
-        office: "Room 301",
+const StaffDashboard = () => {
+    const [user, setUser] = useState({
+        name: "",
+        role: "",
     });
+
     const [courses, setCourses] = useState([
         {
             id: 1,
             name: "Introduction to Computer Science",
-            instructor: "Dr. Emily Johnson",
-            credits: 3,
-        },
-        {
-            id: 2,
-            name: "Data Structures",
-            instructor: "Prof. Michael Chen",
-            credits: 4,
-        },
-        {
-            id: 3,
-            name: "Artificial Intelligence",
-            instructor: "Dr. Emily Johnson",
-            credits: 3,
-        },
-        {
-            id: 4,
-            name: "Database Systems",
-            instructor: "Prof. Michael Chen",
-            credits: 4,
-        },
-        {
-            id: 5,
-            name: "Software Engineering",
-            instructor: "Dr. Sarah Williams",
+            instructor: {
+                id: 1,
+                user: {
+                    name: "Dr. Emily Johnson",
+                },
+            },
             credits: 3,
         },
     ]);
-    const [instructors, setInstructors] = useState(mockInstructors);
-    const [students, setStudents] = useState(mockStudents);
+    const [instructors, setInstructors] = useState([
+        {
+            user: {
+                name: "",
+                email: "",
+            },
+            courses: [],
+        },
+    ]);
+    const [students, setStudents] = useState([
+        {
+            user: {
+                name: "",
+                email: "",
+            },
+            enrollments: [],
+        },
+    ]);
+
+    useEffect(() => {
+        const userId = Cookies.get("cen-userId");
+        if (userId) {
+            backendAccessor.getUser(userId).then((user) => {
+                setUser(user);
+            });
+        }
+        backendAccessor.getCourses().then((courses) => {
+            setCourses(courses);
+        });
+        backendAccessor.getInstructors().then((instructors) => {
+            setInstructors(instructors);
+        });
+        backendAccessor.getStudents().then((students) => {
+            setStudents(students);
+        });
+    }, []);
 
     const [editingCourse, setEditingCourse] = useState(null);
     const [editingInstructor, setEditingInstructor] = useState(null);
     const [editingStudent, setEditingStudent] = useState(null);
 
     const handleCourseChange = (e, id) => {
+        const course = courses.find((c) => c.id === id);
+        if (!course) return;
+
         setCourses(
-            courses.map((course) =>
-                course.id === id
-                    ? { ...course, [e.target.name]: e.target.value }
-                    : course
+            courses.map((c) =>
+                c.id === id ? { ...c, [e.target.name]: e.target.value } : c
             )
         );
     };
 
     const handleInstructorChange = (e, id) => {
+        const instructor = instructors.find((i) => i.id === id);
+        if (!instructor) return;
+
         setInstructors(
-            instructors.map((instructor) =>
-                instructor.id === id
-                    ? { ...instructor, [e.target.name]: e.target.value }
-                    : instructor
+            instructors.map((i) =>
+                i.id === id
+                    ? {
+                          ...i,
+                          user: {
+                              ...i.user,
+                              [e.target.name]: e.target.value,
+                          },
+                      }
+                    : i
             )
         );
     };
 
     const handleStudentChange = (e, id) => {
+        const student = students.find((s) => s.id === id);
+        if (!student) return;
+
         setStudents(
-            students.map((student) =>
-                student.id === id
-                    ? { ...student, [e.target.name]: e.target.value }
-                    : student
+            students.map((s) =>
+                s.id === id
+                    ? {
+                          ...s,
+                          user: {
+                              ...s.user,
+                              [e.target.name]: e.target.value,
+                          },
+                      }
+                    : s
             )
         );
     };
 
     const addCourse = () => {
         const newCourse = {
-            id: courses.length + 1,
+            id: Math.max(...courses.map((c) => c.id)) + 1,
             name: "",
-            instructor: "",
             credits: 0,
+            department: user.Staff.department,
+            instructor: {
+                id: null,
+                user: {
+                    name: "",
+                },
+            },
         };
         setCourses([...courses, newCourse]);
         setEditingCourse(newCourse.id);
@@ -89,10 +131,12 @@ const StaffDashboard = ({ onSignOut, user }) => {
 
     const addInstructor = () => {
         const newInstructor = {
-            id: instructors.length + 1,
-            name: "",
+            id: Math.max(...instructors.map((i) => i.id)) + 1,
+            user: {
+                name: "",
+                email: "",
+            },
             specialization: "",
-            email: "",
             officeHours: "",
             courses: [],
         };
@@ -102,13 +146,15 @@ const StaffDashboard = ({ onSignOut, user }) => {
 
     const addStudent = () => {
         const newStudent = {
-            id: students.length + 1,
-            name: "",
-            major: department.name,
+            id: Math.max(...students.map((s) => s.id)) + 1,
+            user: {
+                name: "",
+                email: "",
+            },
+            major: user.Staff.department,
             gpa: 0,
-            email: "",
             enrollmentYear: new Date().getFullYear(),
-            courses: [],
+            enrollments: [],
         };
         setStudents([...students, newStudent]);
         setEditingStudent(newStudent.id);
@@ -126,6 +172,12 @@ const StaffDashboard = ({ onSignOut, user }) => {
 
     const removeStudent = (id) => {
         setStudents(students.filter((student) => student.id !== id));
+    };
+
+    const onSignOut = () => {
+        Cookies.remove("cen-userId");
+        Cookies.remove("cen-userRole");
+        window.location.href = "/";
     };
 
     return (
@@ -149,18 +201,10 @@ const StaffDashboard = ({ onSignOut, user }) => {
                     Department Information
                 </h2>
                 <p className="text-lg">
-                    <span className="font-medium">Name:</span> {department.name}
-                </p>
-                <p className="text-lg">
-                    <span className="font-medium">Building:</span>{" "}
-                    {department.building}
-                </p>
-                <p className="text-lg">
-                    <span className="font-medium">Office:</span>{" "}
-                    {department.office}
+                    <span className="font-medium">Name:</span>{" "}
+                    {user?.Staff?.department || "N/A"}
                 </p>
             </div>
-
             <div className="bg-white shadow-md rounded-lg p-6 mb-8">
                 <h2 className="text-2xl font-semibold mb-4 text-gray-800">
                     Manage Courses
@@ -182,7 +226,7 @@ const StaffDashboard = ({ onSignOut, user }) => {
                                 <input
                                     type="text"
                                     name="instructor"
-                                    value={course.instructor}
+                                    value={course.instructor.user.name}
                                     onChange={(e) =>
                                         handleCourseChange(e, course.id)
                                     }
@@ -212,8 +256,8 @@ const StaffDashboard = ({ onSignOut, user }) => {
                                     <span className="font-medium">
                                         {course.name}
                                     </span>{" "}
-                                    - Instructor: {course.instructor} - Credits:{" "}
-                                    {course.credits}
+                                    - Instructor: {course.instructor.user.name}{" "}
+                                    - Credits: {course.credits}
                                 </div>
                                 <div>
                                     <button
@@ -257,7 +301,7 @@ const StaffDashboard = ({ onSignOut, user }) => {
                                 <input
                                     type="text"
                                     name="name"
-                                    value={instructor.name}
+                                    value={instructor.user.name}
                                     onChange={(e) =>
                                         handleInstructorChange(e, instructor.id)
                                     }
@@ -277,7 +321,7 @@ const StaffDashboard = ({ onSignOut, user }) => {
                                 <input
                                     type="email"
                                     name="email"
-                                    value={instructor.email}
+                                    value={instructor.user.email}
                                     onChange={(e) =>
                                         handleInstructorChange(e, instructor.id)
                                     }
@@ -305,7 +349,7 @@ const StaffDashboard = ({ onSignOut, user }) => {
                             <div>
                                 <div className="flex justify-between items-center mb-2">
                                     <h3 className="text-xl font-semibold">
-                                        {instructor.name}
+                                        {instructor.user.name}
                                     </h3>
                                     <div>
                                         <button
@@ -336,7 +380,7 @@ const StaffDashboard = ({ onSignOut, user }) => {
                                 </p>
                                 <p>
                                     <span className="font-medium">Email:</span>{" "}
-                                    {instructor.email}
+                                    {instructor.user.email}
                                 </p>
                                 <p>
                                     <span className="font-medium">
@@ -348,7 +392,9 @@ const StaffDashboard = ({ onSignOut, user }) => {
                                     <span className="font-medium">
                                         Courses:
                                     </span>{" "}
-                                    {instructor.courses.join(", ")}
+                                    {instructor.courses
+                                        .map((course) => course.name)
+                                        .join(", ")}
                                 </p>
                             </div>
                         )}
@@ -376,7 +422,7 @@ const StaffDashboard = ({ onSignOut, user }) => {
                                 <input
                                     type="text"
                                     name="name"
-                                    value={student.name}
+                                    value={student.user.name}
                                     onChange={(e) =>
                                         handleStudentChange(e, student.id)
                                     }
@@ -402,19 +448,9 @@ const StaffDashboard = ({ onSignOut, user }) => {
                                     }
                                     className="m-2 p-2 border rounded-md w-20"
                                     placeholder="GPA"
-                                    step="0.1"
+                                    step="0.01"
                                     min="0"
                                     max="4"
-                                />
-                                <input
-                                    type="email"
-                                    name="email"
-                                    value={student.email}
-                                    onChange={(e) =>
-                                        handleStudentChange(e, student.id)
-                                    }
-                                    className="m-2 p-2 border rounded-md flex-grow"
-                                    placeholder="Email"
                                 />
                                 <input
                                     type="number"
@@ -425,6 +461,16 @@ const StaffDashboard = ({ onSignOut, user }) => {
                                     }
                                     className="m-2 p-2 border rounded-md w-32"
                                     placeholder="Enrollment Year"
+                                />
+                                <input
+                                    type="email"
+                                    name="email"
+                                    value={student.user.email}
+                                    onChange={(e) =>
+                                        handleStudentChange(e, student.id)
+                                    }
+                                    className="m-2 p-2 border rounded-md flex-grow"
+                                    placeholder="Email"
                                 />
                                 <button
                                     onClick={() => setEditingStudent(null)}
@@ -437,7 +483,7 @@ const StaffDashboard = ({ onSignOut, user }) => {
                             <div>
                                 <div className="flex justify-between items-center mb-2">
                                     <h3 className="text-xl font-semibold">
-                                        {student.name}
+                                        {student.user.name}
                                     </h3>
                                     <div>
                                         <button
@@ -467,20 +513,25 @@ const StaffDashboard = ({ onSignOut, user }) => {
                                     {student.gpa}
                                 </p>
                                 <p>
-                                    <span className="font-medium">Email:</span>{" "}
-                                    {student.email}
-                                </p>
-                                <p>
                                     <span className="font-medium">
                                         Enrollment Year:
                                     </span>{" "}
                                     {student.enrollmentYear}
                                 </p>
                                 <p>
+                                    <span className="font-medium">Email:</span>{" "}
+                                    {student.user.email}
+                                </p>
+                                <p>
                                     <span className="font-medium">
-                                        Courses:
+                                        Enrolled Courses:
                                     </span>{" "}
-                                    {student.courses.join(", ")}
+                                    {student.enrollments
+                                        .map(
+                                            (enrollment) =>
+                                                enrollment.course.name
+                                        )
+                                        .join(", ")}
                                 </p>
                             </div>
                         )}
